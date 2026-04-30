@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Upload — FlaskVault{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .page-header {
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.5s ease both;
+  }
+  .page-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2.2rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+  .page-header p { color: var(--muted); font-size: 0.9rem; }
+
+  /* Drop Zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 4rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--surface);
+    position: relative;
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(124,58,237,0.05);
+    transform: scale(1.005);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 3rem; margin-bottom: 1rem; display: block; }
+  .drop-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .drop-sub { color: var(--muted); font-size: 0.82rem; }
+  .drop-sub span { color: var(--accent2); }
+
+  /* File preview */
+  #file-preview {
+    display: none;
+    margin-top: 1rem;
+    animation: fadeUp 0.3s ease both;
+  }
+  .file-info-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .file-info-name { font-size: 0.9rem; color: var(--text); }
+  .file-info-size { font-size: 0.8rem; color: var(--muted); }
+
+  /* Submit */
+  .form-actions {
+    display: flex; gap: 0.75rem; margin-top: 1rem;
+    animation: fadeUp 0.5s 0.2s ease both;
+  }
+
+  /* Progress bar */
+  #progress-wrap {
+    display: none;
+    margin-top: 1.5rem;
+    animation: fadeUp 0.3s ease both;
+  }
+  .progress-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 999px;
+    transition: width 0.3s;
+    animation: progressAnim 2s ease infinite;
+  }
+  @keyframes progressAnim {
+    0%   { width: 10%; }
+    50%  { width: 70%; }
+    100% { width: 95%; }
+  }
+  .progress-label { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; text-align: center; }
+
+  /* Info cards */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 2.5rem;
+    animation: fadeUp 0.5s 0.3s ease both;
+  }
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem;
+  }
+  .info-card-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+  .info-card-title { font-size: 0.8rem; font-weight: 500; color: var(--text); margin-bottom: 0.25rem; }
+  .info-card-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Upload to S3</h2>
+  <p>Files are uploaded directly to your AWS S3 bucket via the Flask server on EC2.</p>
+</div>
+
+<form id="upload-form" method="POST" enctype="multipart/form-data" action="/upload">
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" name="file" id="file-input" accept="*/*" />
+    <span class="drop-icon">📂</span>
+    <div class="drop-title">Drop your file here</div>
+    <div class="drop-sub">or <span>click to browse</span> — any file type accepted</div>
+  </div>
+
+  <div id="file-preview">
+    <div class="file-info-row">
+      <span class="file-info-name" id="preview-name">—</span>
+      <span class="file-info-size" id="preview-size">—</span>
+    </div>
+  </div>
+
+  <div id="progress-wrap">
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill"></div>
+    </div>
+    <div class="progress-label">Uploading to S3…</div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+      ↑ Upload to S3
+    </button>
+    <a href="/" class="btn btn-outline">← Back to Home</a>
+  </div>
+</form>
+
+<div class="info-grid">
+  <div class="info-card">
+    <div class="info-card-icon">🔒</div>
+    <div class="info-card-title">Secure Transfer</div>
+    <div class="info-card-desc">Files are transferred using HTTPS and stored with server-side encryption on S3.</div>
+  </div>
+  <div class="info-card">
+    <div class="info-card-icon">⚡</div>
+    <div class="info-card-title">Direct to S3</div>
+    <div class="info-card-desc">Flask server running on EC2 streams your file directly to the S3 bucket via boto3.</div>
+  </div>
+  <div class="info-card">
+    <div class="info-card-icon">🐳</div>
+    <div class="info-card-title">Containerized</div>
+    <div class="info-card-desc">The Flask app runs inside a Docker container deployed on your EC2 instance.</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const fileInput = document.getElementById('file-input');
+  const submitBtn = document.getElementById('submit-btn');
+  const preview   = document.getElementById('file-preview');
+  const dropZone  = document.getElementById('drop-zone');
+  const form      = document.getElementById('upload-form');
+  const progressWrap = document.getElementById('progress-wrap');
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      document.getElementById('preview-name').textContent = '📄 ' + file.name;
+      document.getElementById('preview-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+      preview.style.display = 'block';
+      submitBtn.disabled = false;
+    }
+  });
+
+  // Drag & drop styles
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      fileInput.files = e.dataTransfer.files;
+      fileInput.dispatchEvent(new Event('change'));
+    }
+  });
+
+  // Show progress on submit
+  form.addEventListener('submit', () => {
+    progressWrap.style.display = 'block';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Uploading…';
+  });
+</script>
+{% endblock %}
